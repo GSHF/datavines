@@ -66,10 +66,6 @@ public abstract class BaseLocalConfigurationBuilder extends BaseJobConfiguration
                             .getPluginLoader(ConnectorFactory.class)
                             .getNewPlugin(connectorParameter.getType());
 
-                    if (connectorParameter.getParameters().get(ENABLE_USE_VIEW) != null) {
-                        metricInputParameter.put(ENABLE_USE_VIEW, String.valueOf(connectorParameter.getParameters().get(ENABLE_USE_VIEW)));
-                    }
-
                     Map<String, Object> connectorParameterMap = new HashMap<>(connectorParameter.getParameters());
                     connectorParameterMap.putAll(metricInputParameter);
                     connectorParameterMap = connectorFactory.getConnectorParameterConverter().converter(connectorParameterMap);
@@ -98,7 +94,7 @@ public abstract class BaseLocalConfigurationBuilder extends BaseJobConfiguration
                     connectorParameterMap.put(PRE_SQL, metricInputParameter.get(PRE_SQL));
                     connectorParameterMap.put(POST_SQL, metricInputParameter.get(POST_SQL));
 
-                    metricInputParameter.putAll(connectorFactory.getDialect().getDialectKeyMap());
+//                    metricInputParameter.putAll(connectorFactory.getDialect().getDialectKeyMap());
                     metricInputParameter.put(SRC_CONNECTOR_TYPE, connectorParameter.getType());
                     metricInputParameter.put(TABLE, table);
 
@@ -150,7 +146,7 @@ public abstract class BaseLocalConfigurationBuilder extends BaseJobConfiguration
                     connectorParameterMap.put(SRC_CONNECTOR_TYPE, connectorParameter2.getType());
                     connectorParameterMap.put(PRE_SQL, metricInputParameter.get(PRE_SQL));
                     connectorParameterMap.put(POST_SQL, metricInputParameter.get(POST_SQL));
-                    metricInputParameter.putAll(connectorFactory.getDialect().getDialectKeyMap());
+//                    metricInputParameter.putAll(connectorFactory.getDialect().getDialectKeyMap());
                     metricInputParameter.put(SRC_CONNECTOR_TYPE, connectorParameter2.getType());
                     metricInputParameter.put(TABLE2, table);
                     boolean invalidateItemCanOutput = Boolean.parseBoolean(metricInputParameter.get(INVALIDATE_ITEM_CAN_OUTPUT));
@@ -207,24 +203,19 @@ public abstract class BaseLocalConfigurationBuilder extends BaseJobConfiguration
                 invalidateItemCanOutput &= sqlMetric.isInvalidateItemsCanOutput();
                 metricInputParameter.put(INVALIDATE_ITEM_CAN_OUTPUT, String.valueOf(invalidateItemCanOutput));
 
-                boolean isEnableUseView = false;
-                if (metricInputParameter.get(ENABLE_USE_VIEW) != null) {
-                    isEnableUseView = Boolean.parseBoolean(metricInputParameter.get(ENABLE_USE_VIEW));
-                }
-
-                if (isEnableUseView) {
-                    // generate invalidate item execute sql
-                    if (sqlMetric.getInvalidateItems(metricInputParameter) != null) {
-                        ExecuteSql invalidateItemExecuteSql = sqlMetric.getInvalidateItems(metricInputParameter);
-                        metricInputParameter.put(INVALIDATE_ITEMS_TABLE, invalidateItemExecuteSql.getResultTable());
-                        invalidateItemExecuteSql.setResultTable(invalidateItemExecuteSql.getResultTable());
+                if (sqlMetric.getInvalidateItems(metricInputParameter) != null) {
+                    // generate actual value execute sql
+                    ExecuteSql actualValueExecuteSql = sqlMetric.getDirectActualValue(metricInputParameter);
+                    if (actualValueExecuteSql != null) {
+                        actualValueExecuteSql.setResultTable(sqlMetric.getDirectActualValue(metricInputParameter).getResultTable());
                         MetricParserUtils.setTransformerConfig(
                                 metricInputParameter,
                                 transformConfigs,
-                                invalidateItemExecuteSql,
-                                TransformType.INVALIDATE_ITEMS.getDescription());
+                                actualValueExecuteSql,
+                                TransformType.ACTUAL_VALUE.getDescription());
+                        metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
                     }
-
+                } else {
                     // generate actual value execute sql
                     ExecuteSql actualValueExecuteSql = sqlMetric.getActualValue(metricInputParameter);
                     if (actualValueExecuteSql != null) {
@@ -235,32 +226,6 @@ public abstract class BaseLocalConfigurationBuilder extends BaseJobConfiguration
                                 actualValueExecuteSql,
                                 TransformType.ACTUAL_VALUE.getDescription());
                         metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                    }
-                } else {
-                    if (sqlMetric.getInvalidateItems(metricInputParameter) != null) {
-                        // generate actual value execute sql
-                        ExecuteSql actualValueExecuteSql = sqlMetric.getDirectActualValue(metricInputParameter);
-                        if (actualValueExecuteSql != null) {
-                            actualValueExecuteSql.setResultTable(sqlMetric.getDirectActualValue(metricInputParameter).getResultTable());
-                            MetricParserUtils.setTransformerConfig(
-                                    metricInputParameter,
-                                    transformConfigs,
-                                    actualValueExecuteSql,
-                                    TransformType.ACTUAL_VALUE.getDescription());
-                            metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                        }
-                    } else {
-                        // generate actual value execute sql
-                        ExecuteSql actualValueExecuteSql = sqlMetric.getActualValue(metricInputParameter);
-                        if (actualValueExecuteSql != null) {
-                            actualValueExecuteSql.setResultTable(sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                            MetricParserUtils.setTransformerConfig(
-                                    metricInputParameter,
-                                    transformConfigs,
-                                    actualValueExecuteSql,
-                                    TransformType.ACTUAL_VALUE.getDescription());
-                            metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                        }
                     }
                 }
 
